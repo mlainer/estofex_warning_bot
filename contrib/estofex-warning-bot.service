@@ -1,0 +1,15 @@
+[Unit]
+Description=ESTOFEX warning bot (Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/opt/estofex_warning_bot
+ExecStart=/usr/bin/python3 /opt/estofex_warning_bot/estofex_warning_bot.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

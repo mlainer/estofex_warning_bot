@@ -1,0 +1,8 @@
+.git
+.env
+.venv
+__pycache__
+tests
+contrib
+*.md
+estofex_state.json

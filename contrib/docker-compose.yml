@@ -1,0 +1,17 @@
+# Run from the repository root:
+#   cp .env.example .env   # and fill in
+#   docker compose -f contrib/docker-compose.yml up -d --build
+name: estofex-warning-bot
+services:
+  estofex-warning-bot:
+    build:
+      context: ..
+      dockerfile: contrib/Dockerfile
+    container_name: estofex-warning-bot
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - estofex-data:/data
+
+volumes:
+  estofex-data:

@@ -1,0 +1,15 @@
+# secrets and runtime state
+.env
+estofex_state.json
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# backups / editor
+*.old
+.vscode/
+.idea/
