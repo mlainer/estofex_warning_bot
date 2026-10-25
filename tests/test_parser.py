@@ -48,3 +48,23 @@ def test_build_text_contains_level_and_link():
          'summary': 'A level 2 was issued.', 'url': 'https://example.org/f'}
     text = bot.build_text(f)
     assert 'LEVEL 2' in text and 'A level 2 was issued.' in text and 'https://example.org/f' in text
+
+
+def test_last_command_only_for_allowed_chats():
+    with mock.patch.object(bot, 'reply_last') as reply:
+        bot.handle_update({'message': {'text': '/last', 'chat': {'id': 1}}}, {'1'})
+        bot.handle_update({'message': {'text': '/last@my_bot', 'chat': {'id': 1}}}, {'1'})
+        bot.handle_update({'message': {'text': '/last', 'chat': {'id': 2}}}, {'1'})
+        bot.handle_update({'message': {'text': 'hello', 'chat': {'id': 1}}}, {'1'})
+    assert reply.call_count == 2
+    reply.assert_called_with('1')
+
+
+def test_latest_forecast_falls_back_to_archive():
+    def fake(url=bot.LIST_URL):
+        return [] if url == bot.LIST_URL else [
+            {'title': 'Mesoscale Discussion', 'level': 0},
+            {'title': 'Storm Forecast', 'level': 2}]
+    with mock.patch.object(bot, 'fetch_valid_forecasts', side_effect=fake):
+        f, archived = bot.latest_forecast()
+    assert f['title'] == 'Storm Forecast' and archived

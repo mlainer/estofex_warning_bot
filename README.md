@@ -15,6 +15,7 @@ ESTOFEX forecasts are published under the [Creative Commons Attribution-NonComme
 - Detects the currently valid forecasts on estofex.org and their threat level (0–3)
 - Sends the forecast map (PNG) plus validity, issue time, level summary and a link via Telegram
 - Sends each forecast only once (state kept in `estofex_state.json`)
+- Telegram command `/last`: sends the latest storm forecast on demand (from the archive if none is currently valid)
 - Configurable minimum level and polling interval
 - Only dependency: `requests`
 

@@ -9,7 +9,7 @@ Configuration (environment variables or a .env file next to this script):
     MIN_LEVEL                    optional, default 1
     ESTOFEX_STATE_FILE           optional, path of the "already sent" state file
 Usage:
-    estofex_warning_bot.py            run forever
+    estofex_warning_bot.py            run forever (also answers /last in Telegram)
     estofex_warning_bot.py --once     check once and exit
     estofex_warning_bot.py --test     send a test message and exit
     estofex_warning_bot.py --archive  send the newest archived level 2 storm forecast and exit
@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.parse
 from datetime import datetime
@@ -128,9 +129,9 @@ def build_text(f):
 
 # ---------------------------------------------------------------- senders
 
-def send_telegram(text, image=None):
+def send_telegram(text, image=None, chats=None):
     token = os.environ.get('TELEGRAM_BOT_TOKEN')
-    chats = csv_env('TELEGRAM_CHAT_IDS')
+    chats = chats or csv_env('TELEGRAM_CHAT_IDS')
     if not (token and chats):
         log('telegram not configured, skipping')
         return False
@@ -193,6 +194,70 @@ def send_archive_test(level):
     log(f'no archived level {level} storm forecast found')
 
 
+# ---------------------------------------------------------------- telegram commands
+
+def latest_forecast():
+    """Newest valid storm forecast, falling back to the newest one in the archive."""
+    for url, archived in ((LIST_URL, False), (ARCHIVE_URL, True)):
+        for f in fetch_valid_forecasts(url):
+            if 'storm' in f['title'].lower():
+                return f, archived
+    return None, False
+
+
+def reply_last(chat):
+    f, archived = latest_forecast()
+    if not f:
+        send_telegram('No storm forecast found on estofex.org.', chats=[chat])
+        return
+    text = build_text(fetch_details(f))
+    if archived:
+        text = 'No forecast is currently valid. Latest one from the archive:\n\n' + text
+    send_telegram(text, f['image'], chats=[chat])
+
+
+def handle_update(update, allowed):
+    msg = update.get('message') or {}
+    text = (msg.get('text') or '').strip()
+    chat = str(msg.get('chat', {}).get('id', ''))
+    if not text.startswith('/'):
+        return
+    if chat not in allowed:
+        log(f'ignoring command from unauthorised chat {chat}')
+        return
+    cmd = text.split()[0].split('@')[0].lower()
+    if cmd == '/last':
+        reply_last(chat)
+    elif cmd in ('/start', '/help'):
+        send_telegram('Commands:\n/last - latest storm forecast (from the archive if none is valid)', chats=[chat])
+
+
+def listen_for_commands():
+    """Long-poll Telegram for commands; only chats listed in TELEGRAM_CHAT_IDS may use them."""
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    allowed = set(csv_env('TELEGRAM_CHAT_IDS'))
+    if not (token and allowed):
+        return
+    api = f'https://api.telegram.org/bot{token}/getUpdates'
+    offset = None
+    while True:
+        try:
+            params = {'timeout': 30, 'allowed_updates': json.dumps(['message'])}
+            if offset is not None:
+                params['offset'] = offset
+            r = requests.get(api, params=params, timeout=45)
+            r.raise_for_status()
+            for u in r.json().get('result', []):
+                offset = u['update_id'] + 1
+                try:
+                    handle_update(u, allowed)
+                except Exception as e:
+                    log(f'command failed: {e}')
+        except Exception as e:
+            log(f'telegram polling failed: {e}')
+            time.sleep(10)
+
+
 def main():
     load_env()
     if '--archive' in sys.argv:
@@ -205,6 +270,7 @@ def main():
         check()
         return
     log('starting...')
+    threading.Thread(target=listen_for_commands, daemon=True).start()
     poll = int(os.environ.get('POLL_SECONDS', '600'))
     while True:
         try:
