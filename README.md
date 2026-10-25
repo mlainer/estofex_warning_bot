@@ -45,6 +45,15 @@ cp .env.example .env      # then edit .env
 | `POLL_SECONDS`       | no       | `600`   | Seconds between checks                           |
 | `ESTOFEX_STATE_FILE` | no       | `estofex_state.json` next to the script | Where the "already sent" list is stored (set to `/data/...` in Docker) |
 
+## Telegram commands
+
+| Command | Action |
+|---------|--------|
+| `/last` | Sends the newest valid storm forecast with map. If none is valid, the newest one from the archive is sent and marked as such. |
+| `/help` | Lists the commands |
+
+Commands are only answered for chats listed in `TELEGRAM_CHAT_IDS`; all others are ignored. The bot receives commands by long polling (`getUpdates`), so it needs no open port. Only **one** program may poll a given bot token at a time. Don't run a second instance with the same token, and read your chat ID from `getUpdates` *before* starting the bot.
+
 ## Usage
 
 ```bash
